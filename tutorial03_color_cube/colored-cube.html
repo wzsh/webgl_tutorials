@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Draw colored-triangle</title>
+        <meta charset=utf-8 />
+        <style>
+        
+        </style>
+
+        <script id="vertex-shader" type="x-shader/x-vertex">
+            attribute vec3 p;
+            attribute vec3 vc;
+        
+            varying vec3 fColor;
+
+            uniform mat4 MVP;
+        
+            void main() {
+                gl_Position = MVP * vec4(p, 1.0);
+                fColor = vc;
+            }
+        </script>
+
+        <script id="fragment-shader" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+        
+            varying vec3 fColor;
+        
+            void main() {
+                gl_FragColor = vec4(fColor, 1.0);
+            }
+        </script>
+
+        <script id="myglm">
+        var glm = {
+            perspective: function(fieldOfViewInRadians, aspect, near, far) {
+                var f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewInRadians);
+                var rangeInv = 1.0 / (near - far);
+
+                return [
+                f / aspect, 0, 0, 0,
+                0, f, 0, 0,
+                0, 0, (near + far) * rangeInv, -1,
+                0, 0, near * far * rangeInv * 2, 0
+                ];
+            },
+
+            lookat: function(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ){
+                var f = glm.normalize(centerX-eyeX, centerY-eyeY, centerZ-eyeZ);
+                var cs = glm.cross(f, [upX, upY, upZ]); 
+                var s = glm.normalize(cs[0], cs[1], cs[2]);
+                var u = glm.cross(s, f);
+                var eye = [eyeX, eyeY, eyeZ];
+                return[ 
+                    s[0], u[0], -f[0], 0,
+                    s[1], u[1], -f[1], 0,
+                    s[2], u[2], -f[2], 0,
+                    -glm.dot(s, eye), -glm.dot(u, eye), glm.dot(f, eye), 1,
+                ];
+            },
+            
+            normalize(x, y, z){
+                magnitude = Math.sqrt(x*x + y*y + z*z);
+                return[x/magnitude, y/magnitude, z/magnitude];
+            },
+
+            cross(a, b){
+                return [a[1]*b[2]-a[2]*b[1],
+                        a[2]*b[0]-a[0]*b[2],
+                        a[0]*b[1]-a[1]*b[0] ];
+            },
+
+            dot(a, b){
+                return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+            },
+
+            identity(n){
+                return [n, 0.0, 0.0, 0.0,
+                        0.0, n, 0.0, 0.0,
+                        0.0, 0.0, n, 0.0,
+                        0.0, 0.0, 0.0, n,];
+            },
+
+            radians(degrees) {
+                return degrees * Math.PI / 180;
+            },
+            
+            // Converts from radians to degrees.
+            degrees(radians) {
+                return radians * 180 / Math.PI;
+            },
+     
+            multiply: function(a, b) {
+                var a00 = a[0 * 4 + 0];
+                var a01 = a[0 * 4 + 1];
+                var a02 = a[0 * 4 + 2];
+                var a03 = a[0 * 4 + 3];
+                var a10 = a[1 * 4 + 0];
+                var a11 = a[1 * 4 + 1];
+                var a12 = a[1 * 4 + 2];
+                var a13 = a[1 * 4 + 3];
+                var a20 = a[2 * 4 + 0];
+                var a21 = a[2 * 4 + 1];
+                var a22 = a[2 * 4 + 2];
+                var a23 = a[2 * 4 + 3];
+                var a30 = a[3 * 4 + 0];
+                var a31 = a[3 * 4 + 1];
+                var a32 = a[3 * 4 + 2];
+                var a33 = a[3 * 4 + 3];
+                var b00 = b[0 * 4 + 0];
+                var b01 = b[0 * 4 + 1];
+                var b02 = b[0 * 4 + 2];
+                var b03 = b[0 * 4 + 3];
+                var b10 = b[1 * 4 + 0];
+                var b11 = b[1 * 4 + 1];
+                var b12 = b[1 * 4 + 2];
+                var b13 = b[1 * 4 + 3];
+                var b20 = b[2 * 4 + 0];
+                var b21 = b[2 * 4 + 1];
+                var b22 = b[2 * 4 + 2];
+                var b23 = b[2 * 4 + 3];
+                var b30 = b[3 * 4 + 0];
+                var b31 = b[3 * 4 + 1];
+                var b32 = b[3 * 4 + 2];
+                var b33 = b[3 * 4 + 3];
+                return [
+                    b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30,
+                    b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31,
+                    b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32,
+                    b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33,
+                    b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30,
+                    b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31,
+                    b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32,
+                    b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33,
+                    b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30,
+                    b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31,
+                    b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32,
+                    b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33,
+                    b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30,
+                    b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
+                    b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
+                    b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33,
+                ];
+            }
+            }; //end of glm
+        </script>
+    </head>
+    <body>
+       <div style="width:800px; margin:0 auto">
+            <canvas id="webgl_canvas" width=800 height=600 style="border:1px dashed #c3c3c3">
+                Your browser is not support canvas tag.
+            </canvas>
+        </div>
+
+        <script>
+            var gl;
+            var canvas = document.getElementById("webgl_canvas");
+                
+            if(canvas && canvas.getContext){
+                gl = canvas.getContext("webgl") ||
+                            canvas.getContext("webkit-3d") ||
+                            canvas.getContext("experimental-webgl") ||
+                            canvas.getContext("moz-3d");
+            }
+
+            
+
+            function compileShader(id, type) {
+                var code = document.getElementById(id).firstChild.nodeValue;
+                var shader = gl.createShader(type);
+
+                gl.shaderSource(shader, code);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.log(`Error compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:`);
+                    console.log(gl.getShaderInfoLog(shader));
+                }
+                return shader;
+            }
+
+            function buildShaderProgram(shaderInfo) {
+                var program = gl.createProgram();
+
+                shaderInfo.forEach(function(desc) {
+                    var shader = compileShader(desc.id, desc.type);
+
+                    if (shader) {
+                        gl.attachShader(program, shader);
+                    }
+                });
+
+                gl.linkProgram(program)
+
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    console.log("Error linking shader program:");
+                    console.log(gl.getProgramInfoLog(program));
+                }
+
+                return program;
+            }
+
+            window.onload = function(){
+                if(gl){
+                    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+                    gl.enable(gl.DEPTH_TEST);
+                    gl.depthFunc(gl.LEQUAL);
+                    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+
+                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                    //gl.viewport(100, 100, gl.canvas.width/2, gl.canvas.height/2);
+
+                    var shaderSet = [
+                        {
+                            type: gl.VERTEX_SHADER, id: "vertex-shader"
+                        },
+                        {
+                            type: gl.FRAGMENT_SHADER, id: "fragment-shader"
+                        }
+                    ];
+
+                    var program = buildShaderProgram(shaderSet);
+                    gl.useProgram(program);
+
+                    var vertices = [-1.0,-1.0,-1.0,
+                                    -1.0,-1.0, 1.0,
+                                    -1.0, 1.0, 1.0,
+                                     1.0, 1.0,-1.0,
+                                    -1.0,-1.0,-1.0,
+                                    -1.0, 1.0,-1.0,
+                                     1.0,-1.0, 1.0,
+                                    -1.0,-1.0,-1.0,
+                                     1.0,-1.0,-1.0,
+                                     1.0, 1.0,-1.0,
+                                     1.0,-1.0,-1.0,
+                                    -1.0,-1.0,-1.0,
+                                    -1.0,-1.0,-1.0,
+                                    -1.0, 1.0, 1.0,
+                                    -1.0, 1.0,-1.0,
+                                     1.0,-1.0, 1.0,
+                                    -1.0,-1.0, 1.0,
+                                    -1.0,-1.0,-1.0,
+                                    -1.0, 1.0, 1.0,
+                                    -1.0,-1.0, 1.0,
+                                     1.0,-1.0, 1.0,
+                                     1.0, 1.0, 1.0,
+                                     1.0,-1.0,-1.0,
+                                     1.0, 1.0,-1.0,
+                                     1.0,-1.0,-1.0,
+                                     1.0, 1.0, 1.0,
+                                     1.0,-1.0, 1.0,
+                                     1.0, 1.0, 1.0,
+                                     1.0, 1.0,-1.0,
+                                    -1.0, 1.0,-1.0,
+                                     1.0, 1.0, 1.0,
+                                    -1.0, 1.0,-1.0,
+                                    -1.0, 1.0, 1.0,
+                                     1.0, 1.0, 1.0,
+                                    -1.0, 1.0, 1.0,
+                                     1.0,-1.0, 1.0];
+
+                    var color_data = [  0.0, 0.0, 0.0,
+                                        0.0, 0.0, 1.0,
+                                        0.0, 1.0, 1.0,
+                                        1.0, 1.0, 0.0,
+                                        0.0, 0.0, 0.0,
+                                        0.0, 1.0, 0.0,
+                                        1.0, 0.0, 1.0,
+                                        0.0, 0.0, 0.0,
+                                        1.0, 0.0, 0.0,
+                                        1.0, 1.0, 0.0,
+                                        1.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0,
+                                        0.0, 0.0, 0.0,
+                                        0.0, 1.0, 1.0,
+                                        0.0, 1.0, 0.0,
+                                        1.0, 0.0, 1.0,
+                                        0.0, 0.0, 1.0,
+                                        0.0, 0.0, 0.0,
+                                        0.0, 1.0, 1.0,
+                                        0.0, 0.0, 1.0,
+                                        1.0, 0.0, 1.0,
+                                        1.0, 1.0, 1.0,
+                                        1.0, 0.0, 0.0,
+                                        1.0, 1.0, 0.0,
+                                        1.0, 0.0, 0.0,
+                                        1.0, 1.0, 1.0,
+                                        1.0, 0.0, 1.0,
+                                        1.0, 1.0, 1.0,
+                                        1.0, 1.0, 0.0,
+                                        0.0, 1.0, 0.0,
+                                        1.0, 1.0, 1.0,
+                                        0.0, 1.0, 0.0,
+                                        0.0, 1.0, 1.0,
+                                        1.0, 1.0, 1.0,
+                                        0.0, 1.0, 1.0,
+                                        1.0, 0.0, 1.0];
+
+                    vertices = new Float32Array(vertices);
+                    color_data = new Float32Array(color_data);
+
+                    var projection_matrix = glm.perspective(glm.radians(45.0), gl.canvas.clientWidth/gl.canvas.clientHeight, 0.1, 100.0);
+                    var view_matrix = glm.lookat(4, 3, -3, 0, 0, 0, 0, 1, 0);
+                    var model_matrix = glm.identity(1.0);
+                    var matrix = glm.multiply( glm.multiply(projection_matrix, view_matrix), model_matrix);
+                                        
+                    var buf = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                    var color_buf = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, color_buf);
+                    gl.bufferData(gl.ARRAY_BUFFER, color_data, gl.STATIC_DRAW);
+
+                    var p = gl.getAttribLocation(program, "p");
+                    var vc = gl.getAttribLocation(program, "vc");
+                    var mvp = gl.getUniformLocation(program, "MVP");
+                    
+                    gl.uniformMatrix4fv(mvp, false, matrix);
+
+                    gl.enableVertexAttribArray(p);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                    gl.vertexAttribPointer(p, 3, gl.FLOAT, false, 0, 0);
+          
+                    gl.enableVertexAttribArray(vc);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, color_buf);
+                    gl.vertexAttribPointer(vc, 3, gl.FLOAT, false, 0, 0);
+
+                    gl.drawArrays(gl.TRIANGLES, 0, 12*3);
+
+                    gl.disableVertexAttribArray(p);
+                    gl.disableVertexAttribArray(vc);
+                    
+                }
+
+                //gl.deleteBuffer(buf);
+                //gl.deleteBuffer(color_buf);
+                //gl.deleteShader(vs);
+                //gl.deleteShader(fs);
+                //gl.deleteProgram(program);
+            }
+        </script>
+
+    </body>
+
+</html>
+

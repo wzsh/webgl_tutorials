@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Draw colored-triangle</title>
+        <meta charset=utf-8 />
+        <style>
+        
+        </style>
+
+        <script id="vertex-shader" type="x-shader/x-vertex">
+            attribute vec3 p;
+            attribute vec3 vc;
+        
+            varying vec3 fColor;
+
+            uniform mat4 MVP;
+        
+            void main() {
+                gl_Position = MVP * vec4(p, 1.0);
+                fColor = vc;
+            }
+        </script>
+
+        <script id="fragment-shader" type="x-shader/x-fragment">
+            #ifdef GL_ES
+            precision highp float;
+            #endif
+        
+            varying vec3 fColor;
+        
+            void main() {
+                gl_FragColor = vec4(fColor, 1.0);
+            }
+        </script>
+
+        <script id="myglm" src="js/myglm.js"></script>
+    </head>
+    <body>
+       <div style="width:800px; margin:0 auto">
+            <canvas id="webgl_canvas" width=800 height=600 style="border:1px dashed #c3c3c3">
+                Your browser is not support canvas tag.
+            </canvas>
+            <div id="fps_tag"></div>
+        </div>
+
+        <script>
+            var gl;
+            var canvas = document.getElementById("webgl_canvas");
+            var program;
+            var matrix; // mvp martix
+            var vertex_id;
+            var color_id;
+            var mvp_id;
+            var vertex_buf;
+            var color_buf;
+            var last_timestamp = -1;
+            var rotate_angle = 0.0;
+            var vertex_data = [ -1.0,-1.0,-1.0,
+                                -1.0,-1.0, 1.0,
+                                -1.0, 1.0, 1.0,
+                                 1.0, 1.0,-1.0,
+                                -1.0,-1.0,-1.0,
+                                -1.0, 1.0,-1.0,
+                                 1.0,-1.0, 1.0,
+                                -1.0,-1.0,-1.0,
+                                 1.0,-1.0,-1.0,
+                                 1.0, 1.0,-1.0,
+                                 1.0,-1.0,-1.0,
+                                -1.0,-1.0,-1.0,
+                                -1.0,-1.0,-1.0,
+                                -1.0, 1.0, 1.0,
+                                -1.0, 1.0,-1.0,
+                                 1.0,-1.0, 1.0,
+                                -1.0,-1.0, 1.0,
+                                -1.0,-1.0,-1.0,
+                                -1.0, 1.0, 1.0,
+                                -1.0,-1.0, 1.0,
+                                 1.0,-1.0, 1.0,
+                                 1.0, 1.0, 1.0,
+                                 1.0,-1.0,-1.0,
+                                 1.0, 1.0,-1.0,
+                                 1.0,-1.0,-1.0,
+                                 1.0, 1.0, 1.0,
+                                 1.0,-1.0, 1.0,
+                                 1.0, 1.0, 1.0,
+                                 1.0, 1.0,-1.0,
+                                -1.0, 1.0,-1.0,
+                                 1.0, 1.0, 1.0,
+                                -1.0, 1.0,-1.0,
+                                -1.0, 1.0, 1.0,
+                                 1.0, 1.0, 1.0,
+                                -1.0, 1.0, 1.0,
+                                 1.0,-1.0, 1.0 ];
+
+            var color_data = [  0.0, 0.0, 0.0,
+                                0.0, 0.0, 1.0,
+                                0.0, 1.0, 1.0,
+                                1.0, 1.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 1.0, 0.0,
+                                1.0, 0.0, 1.0,
+                                0.0, 0.0, 0.0,
+                                1.0, 0.0, 0.0,
+                                1.0, 1.0, 0.0,
+                                1.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 1.0, 1.0,
+                                0.0, 1.0, 0.0,
+                                1.0, 0.0, 1.0,
+                                0.0, 0.0, 1.0,
+                                0.0, 0.0, 0.0,
+                                0.0, 1.0, 1.0,
+                                0.0, 0.0, 1.0,
+                                1.0, 0.0, 1.0,
+                                1.0, 1.0, 1.0,
+                                1.0, 0.0, 0.0,
+                                1.0, 1.0, 0.0,
+                                1.0, 0.0, 0.0,
+                                1.0, 1.0, 1.0,
+                                1.0, 0.0, 1.0,
+                                1.0, 1.0, 1.0,
+                                1.0, 1.0, 0.0,
+                                0.0, 1.0, 0.0,
+                                1.0, 1.0, 1.0,
+                                0.0, 1.0, 0.0,
+                                0.0, 1.0, 1.0,
+                                1.0, 1.0, 1.0,
+                                0.0, 1.0, 1.0,
+                                1.0, 0.0, 1.0];
+
+            
+            window.onload = function(){
+                InitScene();
+                UpdateScene();
+            }
+
+            window.onunload = function(){
+                gl.deleteBuffer(vertex_buf);
+                gl.deleteBuffer(color_buf);
+                gl.deleteProgram(program);
+            };
+            
+            function compileShader(id, type) {
+                var code = document.getElementById(id).firstChild.nodeValue;
+                var shader = gl.createShader(type);
+
+                gl.shaderSource(shader, code);
+                gl.compileShader(shader);
+
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.log(`Error compiling ${type === gl.VERTEX_SHADER ? "vertex" : "fragment"} shader:`);
+                    console.log(gl.getShaderInfoLog(shader));
+                }
+                return shader;
+            }
+
+            function buildShaderProgram(shaderInfo) {
+                var program = gl.createProgram();
+
+                shaderInfo.forEach(function(desc) {
+                    var shader = compileShader(desc.id, desc.type);
+
+                    if (shader) {
+                        gl.attachShader(program, shader);
+                    }
+                });
+
+                gl.linkProgram(program)
+
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    console.log("Error linking shader program:");
+                    console.log(gl.getProgramInfoLog(program));
+                }
+
+                return program;
+            }
+
+            function InitScene(){
+                if(canvas && canvas.getContext){
+                    gl = canvas.getContext("webgl") ||
+                                canvas.getContext("webkit-3d") ||
+                                canvas.getContext("experimental-webgl") ||
+                                canvas.getContext("moz-3d");
+                }
+                if(gl){
+                    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+                    gl.enable(gl.DEPTH_TEST);
+                    gl.depthFunc(gl.LEQUAL);
+
+                    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+                    var shaderSet = [
+                        {
+                            type: gl.VERTEX_SHADER, id: "vertex-shader"
+                        },
+                        {
+                            type: gl.FRAGMENT_SHADER, id: "fragment-shader"
+                        }
+                    ];
+
+                    program = buildShaderProgram(shaderSet);
+                    
+                    vertices = new Float32Array(vertex_data);
+                    colors = new Float32Array(color_data);
+
+                    var projection_matrix = glm.perspective(glm.radians(45.0), gl.canvas.clientWidth/gl.canvas.clientHeight, 0.1, 100.0);
+                    var view_matrix = glm.lookat(4, 3, -3, 0, 0, 0, 0, 1, 0);
+                    matrix = glm.multiply(projection_matrix, view_matrix);
+
+                    vertex_buf = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buf);
+                    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+                    color_buf = gl.createBuffer();
+                    gl.bindBuffer(gl.ARRAY_BUFFER, color_buf);
+                    gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+
+                    vertex_id = gl.getAttribLocation(program, "p");
+                    color_id = gl.getAttribLocation(program, "vc");
+                    mvp_id = gl.getUniformLocation(program, "MVP");
+                
+                }
+            }
+
+            function UpdateScene(timestamp){
+                var dt = 100;
+                if(last_timestamp > 0){
+                    dt = timestamp - last_timestamp;
+                }
+                last_timestamp = timestamp;
+                var fps = new Number(1000.0/dt);
+                document.getElementById("fps_tag").innerHTML = "FPS: " + fps.toFixed(1);
+                //console.log("FPS : " + 1000.0/dt);
+
+                DrawScene();
+                window.requestAnimationFrame(UpdateScene)
+            }
+
+            function DrawScene(){
+                if(gl){
+                    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+                    gl.useProgram(program);
+
+                    model_matrix = glm.identity(1.0);
+                    model_matrix = glm.yRotate(model_matrix, glm.radians(-3.0))
+                    matrix = glm.multiply( matrix, model_matrix );
+            
+                    gl.uniformMatrix4fv(mvp_id, false, matrix);
+
+                    gl.enableVertexAttribArray(vertex_id);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buf);
+                    gl.vertexAttribPointer(vertex_id, 3, gl.FLOAT, false, 0, 0);
+          
+                    gl.enableVertexAttribArray(color_id);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, color_buf);
+                    gl.vertexAttribPointer(color_id, 3, gl.FLOAT, false, 0, 0);
+
+                    gl.drawArrays(gl.TRIANGLES, 0, 12*3);
+
+                    gl.disableVertexAttribArray(vertex_id);
+                    gl.disableVertexAttribArray(color_id);
+                    
+                }
+            }
+                
+        </script>
+
+    </body>
+
+</html>
+
